@@ -26,7 +26,7 @@
                     <div>
                         <div class="mb-1 font-semibold">Category</div>
 
-                        <x-radio-group name="category" :options="\App\Models\JobOffer::$categories" />
+                        <x-radio-group name="category" :options="\App\Models\JobOffer::$categories" :columns="2" />
                     </div>
                 </div>
 
