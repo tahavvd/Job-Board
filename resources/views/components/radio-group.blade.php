@@ -1,13 +1,15 @@
-<div @class(['grid', 'grid-cols-2' => $columns === 2])>
-    <label class="mb-1 flex items-center">
-        <input type="radio" name="{{ $name }}" value="" @checked(!request($name)) />
-        <span class="ml-0.5">All</span>
+<div @class(['grid gap-1', 'grid-cols-2' => $columns === 2])>
+    <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="{{ $name }}" value="" @checked(!request($name))
+            class="accent-violet-500" />
+        <span class="text-sm text-gray-300">All</span>
     </label>
 
     @foreach ($optionsWithLabels as $label => $option)
-        <label class="mb-1 flex items-center">
-            <input type="radio" name="{{ $name }}" value="{{ $option }}" @checked(request($name) === $option) />
-            <span>{{ $label }}</span>
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="{{ $name }}" value="{{ $option }}" @checked(request($name) === $option)
+                class="accent-violet-500" />
+            <span class="text-sm text-gray-300">{{ $label }}</span>
         </label>
     @endforeach
 </div>

@@ -10,8 +10,10 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="mx-auto mt-10 max-w-2xl bg-gradient-to-r from-green-400 to-blue-500 text-slate-900">
-    {{ $slot }}
+<body class="min-h-screen bg-gray-950 text-gray-100 antialiased">
+    <div class="mx-auto max-w-3xl px-4 py-10">
+        {{ $slot }}
+    </div>
 </body>
 
 </html>
