@@ -21,12 +21,12 @@
                     <div>
                         <div class="mb-1 font-semibold">Experience</div>
 
-                        <x-radio-group name="experience" :options="\App\Models\JobOffer::$experience" />
+                        <x-radio-group name="experience" :options="array_combine(array_map('ucfirst', \App\Models\JobOffer::$experience), \App\Models\JobOffer::$experience)" />
                     </div>
                     <div>
                         <div class="mb-1 font-semibold">Category</div>
 
-                        <x-radio-group name="category" :options="\App\Models\JobOffer::$categories" :columns="2" />
+                        <x-radio-group name="category" :options="array_combine(array_map('ucfirst', \App\Models\JobOffer::$categories), \App\Models\JobOffer::$categories)" :columns="2" />
                     </div>
                 </div>
 
