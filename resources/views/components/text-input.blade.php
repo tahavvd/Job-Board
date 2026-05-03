@@ -11,5 +11,5 @@
     </button>
     <input type="text" placeholder="{{ $placeholder }}" name="{{ $name }}" value="{{ $value }}"
         id="{{ $name }}"
-        class="pr-8 w-full rounded-lg border-0 bg-gray-800 py-2 px-3 text-sm text-gray-100 ring-1 ring-white/10 placeholder:text-gray-500 focus:ring-2 focus:ring-violet-500 focus:outline-none transition">
+        class="pr-8 w-full rounded-md border-0 bg-gray-800 py-2 px-3 text-sm text-gray-100 ring-1 ring-gray-700 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
 </div>

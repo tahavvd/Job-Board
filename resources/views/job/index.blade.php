@@ -8,12 +8,12 @@
             <form action="{{ route('jobs.index') }}" method="GET">
                 <div class="mb-5 grid grid-cols-2 gap-4 items-start">
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">Search</div>
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Search</div>
                         <x-text-input name="search" value="{{ request('search') }}" placeholder="Search for any text" />
                     </div>
 
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">Salary Range
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Salary Range
                         </div>
                         <div class="flex space-x-2">
                             <x-text-input name="min_salary" value="{{ request('min_salary') }}" placeholder="From" />
@@ -22,7 +22,7 @@
                     </div>
 
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">Experience
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Experience
                         </div>
                         <x-radio-group name="experience" :options="array_combine(
                             array_map('ucfirst', \App\Models\JobOffer::$experience),
@@ -31,7 +31,7 @@
                     </div>
 
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">Category</div>
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Category</div>
                         <x-radio-group name="category" :options="array_combine(
                             array_map('ucfirst', \App\Models\JobOffer::$categories),
                             \App\Models\JobOffer::$categories,
@@ -40,7 +40,7 @@
                 </div>
 
                 <button type="submit"
-                    class="w-full rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-500 transition-colors duration-150">
+                    class="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors duration-150 shadow-lg">
                     Filter Jobs
                 </button>
             </form>
