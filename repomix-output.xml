@@ -44,10 +44,16 @@ The content is organized as follows:
 .env.example
 .gitattributes
 .gitignore
+app/Http/Controllers/AuthConroller.php
 app/Http/Controllers/Controller.php
+app/Http/Controllers/JobApplicationController.php
 app/Http/Controllers/JobOfferController.php
+app/Http/Controllers/MyJobApplicationController.php
+app/Models/Employer.php
+app/Models/JobApplication.php
 app/Models/JobOffer.php
 app/Models/User.php
+app/Policies/JobOfferPolicy.php
 app/Providers/AppServiceProvider.php
 app/View/Components/Breadcrumbs.php
 app/View/Components/RadioGroup.php
@@ -68,12 +74,16 @@ config/queue.php
 config/services.php
 config/session.php
 database/.gitignore
+database/factories/EmployerFactory.php
+database/factories/JobApplicationFactory.php
 database/factories/JobOfferFactory.php
 database/factories/UserFactory.php
 database/migrations/0001_01_01_000000_create_users_table.php
 database/migrations/0001_01_01_000001_create_cache_table.php
 database/migrations/0001_01_01_000002_create_jobs_table.php
 database/migrations/2026_04_14_164335_create_job_offers_table.php
+database/migrations/2026_05_05_233030_create_employers_table.php
+database/migrations/2026_05_10_143517_create_job_applications_table.php
 database/seeders/DatabaseSeeder.php
 docker-compose.yml
 package.json
@@ -86,6 +96,7 @@ README.md
 resources/css/app.css
 resources/js/app.js
 resources/js/bootstrap.js
+resources/views/auth/create.blade.php
 resources/views/components/breadcrumbs.blade.php
 resources/views/components/card.blade.php
 resources/views/components/job-card.blade.php
@@ -94,6 +105,8 @@ resources/views/components/linkbutton.blade.php
 resources/views/components/radio-group.blade.php
 resources/views/components/tag.blade.php
 resources/views/components/text-input.blade.php
+resources/views/job_application/create.blade.php
+resources/views/job_application/index.blade.php
 resources/views/job/index.blade.php
 resources/views/job/show.blade.php
 routes/console.php
@@ -117,6 +130,464 @@ vite.config.js
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="app/Http/Controllers/AuthConroller.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AuthConroller extends Controller
+{
+
+    public function create()
+    {
+        return view('auth.create');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        $credentials = $request->only('email', 'password');
+
+        $remember = $request->filled('remember');
+
+        if (Auth::attempt($credentials, $remember)) {
+            $request->session()->regenerate();
+
+            return redirect()->intended('/');
+        } else {
+            return back()->with('error', 'Invalid email or password.');
+        }
+    }
+
+    public function destroy()
+    {
+        Auth::logout();
+
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+
+        return redirect('/');
+    }
+}
+</file>
+
+<file path="app/Http/Controllers/JobApplicationController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\JobOffer;
+
+class JobApplicationController extends Controller
+{
+
+    public function create(JobOffer $job)
+    {
+        $this->authorize('apply', [JobOffer::class, $job]);
+        return view('job_application.create', ['jobOffer' => $job]);
+    }
+
+    public function store(Request $request, JobOffer $job)
+    {
+        $job->jobApplications()->create([
+            'user_id' => $request->user()->id,
+            ...$request->validate([
+                'expected_salary' => 'numeric|min:0|nullable|max:1000000'
+            ])
+        ]);
+
+        return redirect()->route('jobs.show', $job)->with('success', 'Application submitted successfully!');
+    }
+
+    public function destroy(string $id)
+    {
+        //
+    }
+}
+</file>
+
+<file path="app/Http/Controllers/MyJobApplicationController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class MyJobApplicationController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
+    {
+        return view(
+            'job_application.index',
+            [
+                'applications' => auth()->user()->jobApplications()
+                    ->latest()->get()
+            ]
+        );
+    }
+
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $id)
+    {
+        //
+    }
+}
+</file>
+
+<file path="app/Models/Employer.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Employer extends Model
+{
+    /** @use HasFactory<\Database\Factories\EmployerFactory> */
+    use HasFactory;
+
+    public function jobOffers(): HasMany
+    {
+        return $this->hasMany(JobOffer::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}
+</file>
+
+<file path="app/Models/JobApplication.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class JobApplication extends Model
+{
+    /** @use HasFactory<\Database\Factories\JobApplicationFactory> */
+    use HasFactory;
+
+    protected $fillable = ['user_id', 'job_offer_id', 'expected_salary'];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function jobOffer(): BelongsTo
+    {
+        return $this->belongsTo(JobOffer::class);
+    }
+}
+</file>
+
+<file path="app/Policies/JobOfferPolicy.php">
+<?php
+
+namespace App\Policies;
+
+use App\Models\JobOffer;
+use App\Models\User;
+use Illuminate\Auth\Access\Response;
+
+class JobOfferPolicy
+{
+    /**
+     * Determine whether the user can view any models.
+     */
+    public function viewAny(?User $user): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can view the model.
+     */
+    public function view(?User $user, JobOffer $jobOffer): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can create models.
+     */
+    public function create(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can update the model.
+     */
+    public function update(User $user, JobOffer $jobOffer): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can delete the model.
+     */
+    public function delete(User $user, JobOffer $jobOffer): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can restore the model.
+     */
+    public function restore(User $user, JobOffer $jobOffer): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can permanently delete the model.
+     */
+    public function forceDelete(User $user, JobOffer $jobOffer): bool
+    {
+        return false;
+    }
+
+    public function apply(User $user, JobOffer $jobOffer): bool
+    {
+        return !$jobOffer->hasUserApplied($user);
+    }
+}
+</file>
+
+<file path="database/factories/EmployerFactory.php">
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Employer;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory<Employer>
+ */
+class EmployerFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'company_name' => fake()->company
+        ];
+    }
+}
+</file>
+
+<file path="database/factories/JobApplicationFactory.php">
+<?php
+
+namespace Database\Factories;
+
+use App\Models\JobApplication;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory<JobApplication>
+ */
+class JobApplicationFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'expected_salary' => fake()->numberBetween(3000, 180000)
+        ];
+    }
+}
+</file>
+
+<file path="database/migrations/2026_05_05_233030_create_employers_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('employers', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('company_name');
+            $table->foreignIdFor(\App\Models\User::class)->nullable()->constrained();
+
+            $table->timestamps();
+        });
+
+        Schema::table('job_offers', function (Blueprint $table) {
+            $table->foreignIdFor(\App\Models\Employer::class)->constrained();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('job_offers', function (Blueprint $table) {
+            $table->dropForeign(['employer_id']);
+            $table->dropColumn('employer_id');
+        });
+
+        Schema::dropIfExists('employers');
+    }
+};
+</file>
+
+<file path="database/migrations/2026_05_10_143517_create_job_applications_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('job_applications', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignIdFor(\App\Models\User::class)->constrained()->onDelete('cascade');
+            $table->foreignIdFor(\App\Models\JobOffer::class)->constrained()->onDelete('cascade');
+
+            $table->unsignedInteger('expected_salary')->nullable();
+
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('job_applications');
+    }
+};
+</file>
+
+<file path="resources/views/auth/create.blade.php">
+<x-layout>
+    <h1 class="my-16 text-center text-4xl font-bold">
+        Sign In to Your Account
+    </h1>
+    <x-card class="my-8 px-16">
+        <form method="POST" action="{{ route('auth.store') }}">
+            @csrf
+
+            <div class="mb-8">
+                <label for="email" class="mb-2 block font-medium">Email</label>
+                <x-text-input type="email" name="email" />
+            </div>
+
+            <div class="mb-8">
+                <label for="password" class="mb-2 block font-medium">Password</label>
+                <x-text-input type="password" name="password" />
+            </div>
+
+            <div class="mb-8 flex justify-around text-sm text-gray-100 font-medium">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="remember" class="accent-blue-500 cursor-pointer">
+                    <label for="remember" class="text-sm text-gray-300 cursor-pointer">Remember me</label>
+                </div>
+                <div>
+                    <a href="#" class="text-sm text-blue-400 hover:text-blue-300 transition-colors duration-150">
+                        Forgot password?
+                    </a>
+                </div>
+            </div>
+
+            <button type="submit"
+                class="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors duration-150 shadow-lg">
+                Log In
+            </button>
+
+        </form>
+    </x-card>
+</x-layout>
+</file>
+
+<file path="resources/views/job_application/create.blade.php">
+<x-layout>
+    <x-breadcrumbs class="mb-4" :links="['jobs' => route('jobs.index'), $jobOffer->title => route('jobs.show', $jobOffer), 'Apply' => '#']" />
+
+    <x-job-card :job="$jobOffer" />
+    <x-card>
+        <h2 class="text-xl font-bold mb-6 text-center">Your Job Application</h2>
+
+        <form action="{{ route('jobs.applications.store', $jobOffer) }}" method="POST">
+            @csrf
+            <div class="mb-4">
+                <label for="expected_salary" class="mb-2 block font-medium">Expected Salary</label>
+                <x-text-input type="number" name="expected_salary" />
+            </div>
+
+            <button type="submit"
+                class="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors duration-150 shadow-lg">
+                Apply
+            </button>
+        </form>
+
+    </x-card>
+</x-layout>
+</file>
+
+<file path="resources/views/job_application/index.blade.php">
+<x-layout>
+    <x-breadcrumbs class="mb-6" :links="['My Applications' => '#']" />
+
+    @forelse ($applications as $application)
+        <x-job-card :job="$application->jobOffer" />
+    @empty
+        <p class="text-center text-gray-400">You have not applied to any jobs yet.</p>
+    @endforelse
+</x-layout>
+</file>
 
 <file path=".editorconfig">
 root = true
@@ -255,7 +726,7 @@ namespace App\Http\Controllers;
 
 abstract class Controller
 {
-    //
+    use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 }
 </file>
 
@@ -274,32 +745,10 @@ class JobOfferController extends Controller
      */
     public function index()
     {
-        $jobs = JobOffer::query();
+        $filters = request()->only(['search', 'min_salary', 'max_salary', 'experience', 'category']);
+        $jobs = JobOffer::query()->filter($filters);
 
-        $jobs
-            ->when(request('search'), function ($query) {
-                $query->where(function ($q) {
-                    //      ↑ opens group         ↑ inner function = ( )
-                    $q->where('title', 'like', '%' . request('search') . '%')
-                        ->orWhere('description', 'like', '%' . request('search') . '%');
-                    //                                                                       ↑ closes group
-                });
-            })
-            ->when(request('min_salary'), function ($query) {
-                $query->where('salary', '>=', request('min_salary'));
-            })
-            ->when(request('max_salary'), function ($query) {
-                $query->where('salary', '<=', request('max_salary'));
-            })
-            ->when(request('experience'), function ($query) {
-                $query->where('experience_Level', request('experience'));
-            })
-            ->when(request('category'), function ($query) {
-                $query->where('category', request('category'));
-            });
-
-
-        return view('job.index', ['jobs' => $jobs->get()]);
+        return view('job.index', ['jobs' => $jobs->with('employer')->get()]);
     }
 
     /**
@@ -323,7 +772,7 @@ class JobOfferController extends Controller
      */
     public function show(JobOffer $job)
     {
-        return view('job.show', ['job' => $job]);
+        return view('job.show', ['job' => $job->load('employer.jobOffers')]);
     }
 
     /**
@@ -357,15 +806,62 @@ class JobOfferController extends Controller
 
 namespace App\Models;
 
+use Illuminate\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JobOffer extends Model
 {
     /** @use HasFactory<\Database\Factories\JobOfferFactory> */
     use HasFactory;
+
+    public function employer(): BelongsTo
+    {
+        return $this->belongsTo(Employer::class);
+    }
+
+    public function jobApplications(): HasMany
+    {
+        return $this->hasMany(JobApplication::class);
+    }
+
+    public function hasUserApplied(User|int|Authenticatable $user): bool
+    {
+        return $this->where('id', $this->id)->whereHas('jobApplications', fn($query) => $query->where('user_id', '=', $user->id ?? $user))->exists();
+    }
+
     public static array $experience = ['entry', 'intermediate', 'senior'];
     public static array $categories = ['IT', 'marketing', 'sales', 'design', 'finance'];
+
+    public function scopeFilter(Builder | QueryBuilder $query, array $filters): Builder | QueryBuilder
+    {
+        return $query->when($filters['search'] ?? null, function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhereHas('employer', function ($q) use ($search) {
+                        $q->where('company_name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhere('location', 'like', '%' . $search . '%');
+            });
+        })
+            ->when($filters['min_salary'] ?? null, function ($query, $min_salary) {
+                $query->where('salary', '>=', $min_salary);
+            })
+            ->when($filters['max_salary'] ?? null, function ($query, $max_salary) {
+                $query->where('salary', '<=', $max_salary);
+            })
+            ->when($filters['experience'] ?? null, function ($query, $experience) {
+                $query->where('experience_Level', $experience);
+            })
+            ->when($filters['category'] ?? null, function ($query, $category) {
+                $query->where('category', $category);
+            });
+    }
 }
 </file>
 
@@ -377,6 +873,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -390,6 +887,17 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+
+    public function employer(): HasMany
+    {
+        return $this->hasMany(Employer::class);
+    }
+
+    public function jobApplications(): HasMany
+    {
+        return $this->hasMany(JobApplication::class);
+    }
+
     protected $fillable = [
         'name',
         'email',
@@ -494,9 +1002,9 @@ class TextInput extends Component
     public function __construct(
         public ?string $value = null,
         public ?string $name = null,
-        public ?string $placeholder = null
-    )
-    {
+        public ?string $placeholder = null,
+        public string $type = 'text'
+    ) {
         //
     }
 
@@ -2237,11 +2745,40 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
 
-        //
 
-        JobOffer::factory(50)->create();
+        User::factory()->create([
+            'name' => 'Taha Touil',
+            'email' => 'tahatouil@gmail.com',
+        ]);
+
+        User::factory(300)->create();
+
+        $users = User::all()->shuffle();
+
+        for ($i = 0; $i < 20; $i++) {
+            \App\Models\Employer::factory()->create([
+                "user_id" => $users->pop()->id
+            ]);
+        }
+
+        $employers = \App\Models\Employer::all();
+        for ($i = 0; $i < 100; $i++) {
+            JobOffer::factory()->create([
+                'employer_id' => $employers->random()->id
+            ]);
+        }
+
+        foreach ($users as $user) {
+            $jobOffers = JobOffer::inRandomOrder()->take(rand(1, 5))->get();
+
+            foreach ($jobOffers as $jobOffer) {
+                \App\Models\JobApplication::factory()->create([
+                    'user_id' => $user->id,
+                    'job_offer_id' => $jobOffer->id
+                ]);
+            }
+        }
     }
 }
 </file>
@@ -2454,12 +2991,29 @@ Artisan::command('inspire', function () {
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\JobOfferController;
+use App\Http\Controllers\AuthConroller;
+use App\Http\Controllers\JobApplicationController;
+use App\Http\Controllers\MyJobApplicationController;
 
 Route::get('/', function () {
     return redirect()->route('jobs.index');
 });
 
-Route::resource('jobs', JobOfferController::class)->only(['index' , 'show']);
+Route::resource('jobs', JobOfferController::class)->only(['index', 'show']);
+
+Route::get('login', fn() => to_route('auth.create'))->name('login');
+
+Route::resource('auth', AuthConroller::class)->only(['create', 'store']);
+
+Route::delete('logout', fn() => to_route('auth.destroy'))->name('logout');
+
+Route::delete('auth', [AuthConroller::class, 'destroy'])->name('auth.destroy');
+
+Route::middleware('auth')->group(function () {
+    Route::resource('jobs.applications', JobApplicationController::class)->only(['create', 'store', 'destroy']);
+
+    Route::resource('my-applications', MyJobApplicationController::class)->only(['index', 'destroy']);
+});
 </file>
 
 <file path="storage/app/.gitignore">
@@ -2628,84 +3182,6 @@ window.Alpine = Alpine
 Alpine.start()
 </file>
 
-<file path="resources/views/components/breadcrumbs.blade.php">
-<nav {{ $attributes }}>
-    <ul class="flex space-x-3 text-sm text-gray-600 mb-6">
-        <li>
-            <a href="/" class="hover:text-emerald-600 transition-colors">Home</a>
-        </li>
-
-        @foreach ($links as $label => $link)
-            <li class="text-gray-400">›</li>
-            <li>
-                <a href="{{ $link }}"
-                    class="hover:text-emerald-600 transition-colors capitalize">{{ $label }}</a>
-            </li>
-        @endforeach
-    </ul>
-</nav>
-</file>
-
-<file path="resources/views/components/card.blade.php">
-<article {{ $attributes->class(['rounded-2xl border border-amber-200 bg-white p-5 shadow-sm']) }}>
-    {{ $slot }}
-</article>
-</file>
-
-<file path="resources/views/components/job-card.blade.php">
-<x-card class="mb-4 hover:border-emerald-200 transition-colors duration-200">
-    <div class="mb-2 flex justify-between items-start">
-        <h2 class="text-base font-semibold text-gray-900">{{ $job->title }}</h2>
-        <div class="text-sm font-medium text-emerald-600">${{ number_format($job->salary) }}</div>
-    </div>
-
-    <div class="mb-4 flex items-center justify-between text-xs text-gray-600">
-        <div class="flex space-x-3">
-            <div class="flex items-center gap-1">
-                <span>🏢</span>
-                <span>Company name</span>
-            </div>
-            <div class="flex items-center gap-1">
-                <span>📍</span>
-                <span>{{ $job->location }}</span>
-            </div>
-        </div>
-
-        <div class="flex space-x-2">
-            <x-tag>{{ $job->experience_Level }}</x-tag>
-            <x-tag>{{ $job->category }}</x-tag>
-        </div>
-    </div>
-
-    <div>
-        {{ $slot }}
-    </div>
-</x-card>
-</file>
-
-<file path="resources/views/components/linkbutton.blade.php">
-<a href="{{ $href }}"
-    class="inline-block rounded-full bg-emerald-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors duration-150">
-    {{ $slot }}
-</a>
-</file>
-
-<file path="resources/views/components/tag.blade.php">
-<div class="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-    {{ $slot }}</div>
-</file>
-
-<file path="resources/views/job/show.blade.php">
-<x-layout>
-    <x-breadcrumbs :links="['jobs' => route('jobs.index'), $job->title => route('jobs.show', $job)]" />
-    <x-job-card :job="$job">
-        <div class="mt-4 border-t border-amber-100 pt-4">
-            <p class="text-sm text-gray-700 leading-relaxed">{!! nl2br(e($job->description)) !!}</p>
-        </div>
-    </x-job-card>
-</x-layout>
-</file>
-
 <file path="app/View/Components/RadioGroup.php">
 <?php
 
@@ -2743,6 +3219,128 @@ class RadioGroup extends Component
 }
 </file>
 
+<file path="resources/views/components/breadcrumbs.blade.php">
+<nav {{ $attributes }}>
+    <ul class="flex space-x-3 text-sm text-gray-400 mb-6">
+        <li>
+            <a href="/" class="hover:text-blue-400 transition-colors">Home</a>
+        </li>
+
+        @foreach ($links as $label => $link)
+            <li class="text-gray-600">›</li>
+            <li>
+                <a href="{{ $link }}"
+                    class="hover:text-blue-400 transition-colors capitalize">{{ $label }}</a>
+            </li>
+        @endforeach
+    </ul>
+</nav>
+</file>
+
+<file path="resources/views/components/card.blade.php">
+<article {{ $attributes->class(['rounded-lg border-2 border-blue-500 bg-gray-800 p-5 shadow-2xl shadow-black/50']) }}>
+    {{ $slot }}
+</article>
+</file>
+
+<file path="resources/views/components/job-card.blade.php">
+<x-card class="mb-4 hover:border-blue-400 transition-colors duration-200">
+    <div class="mb-2 flex justify-between items-start">
+        <h2 class="text-base font-semibold text-white">{{ $job->title }}</h2>
+        <div class="text-sm font-medium text-blue-400">${{ number_format($job->salary) }}</div>
+    </div>
+
+    <div class="mb-4 flex items-center justify-between text-xs text-gray-400">
+        <div class="flex space-x-3">
+            <div class="flex items-center gap-1">
+                <span>🏢</span>
+                <span>{{ $job->employer->company_name }}</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span>📍</span>
+                <span>{{ $job->location }}</span>
+            </div>
+        </div>
+
+        <div class="flex space-x-2">
+            <x-tag>
+                <a
+                    href="{{ route('jobs.index', ['experience' => $job->experience_Level]) }}">{{ $job->experience_Level }}</a>
+            </x-tag>
+            <x-tag>
+                <a href="{{ route('jobs.index', ['category' => $job->category]) }}">{{ $job->category }}</a>
+            </x-tag>
+        </div>
+    </div>
+
+    <div>
+        {{ $slot }}
+    </div>
+</x-card>
+</file>
+
+<file path="resources/views/components/linkbutton.blade.php">
+<a href="{{ $href }}"
+    {{ $attributes->merge(['class' => 'inline-block rounded-md bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition-colors duration-150']) }}>
+    {{ $slot }}
+</a>
+</file>
+
+<file path="resources/views/components/tag.blade.php">
+<div class="rounded-md border border-blue-500 bg-blue-500/20 px-2.5 py-0.5 text-xs font-medium text-blue-300">
+    {{ $slot }}</div>
+</file>
+
+<file path="resources/views/job/show.blade.php">
+<x-layout>
+    <x-breadcrumbs :links="['jobs' => route('jobs.index'), $job->title => route('jobs.show', $job)]" />
+
+    <x-job-card :job="$job">
+        <div class="mt-4 border-t border-gray-700 pt-4">
+            <p class="text-sm text-gray-300 leading-relaxed">{!! nl2br(e($job->description)) !!}</p>
+            @can('apply', [App\Models\JobOffer::class, $job])
+                <x-linkbutton href="{{ route('jobs.applications.create', $job) }}" class="mt-6 w-full">
+                    Apply Now
+                </x-linkbutton>
+            @else
+                <div class="mt-6 w-full rounded-md bg-gray-700/50 px-4 py-2 text-center text-sm font-semibold text-gray-400">
+                    You have already applied for this job
+                </div>
+            @endcan
+        </div>
+    </x-job-card>
+
+    @if ($job->employer->jobOffers->where('id', '!=', $job->id)->count() > 0)
+
+        <x-card class="mt-8">
+            <h3 class="text-lg font-semibold text-white mb-4">
+                More {{ $job->employer->company_name }} Jobs
+            </h3>
+
+            @foreach ($job->employer->jobOffers as $relatedJob)
+                @if ($relatedJob->id !== $job->id)
+                    <div class="mb-4 flex justify-between items-center">
+                        <div>
+                            <a href="{{ route('jobs.show', $relatedJob) }}"
+                                class="text-sm text-white hover:text-blue-400 transition-colors">
+                                {{ $relatedJob->title }}
+                            </a>
+                            <div class="text-xs text-gray-400 mt-0.5">
+                                {{ $relatedJob->created_at->diffForHumans() }}
+                            </div>
+                        </div>
+                        <div class="text-sm font-medium text-blue-400">
+                            ${{ number_format($relatedJob->salary) }}
+                        </div>
+                    </div>
+                @endif
+            @endforeach
+        </x-card>
+
+    @endif
+</x-layout>
+</file>
+
 <file path="resources/views/components/layout.blade.php">
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -2756,17 +3354,50 @@ class RadioGroup extends Component
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="min-h-screen bg-amber-50 text-gray-800 antialiased">
+<body class="min-h-screen bg-gray-900 text-gray-100 antialiased">
     <!-- Header/Navbar -->
-    <header class="border-b border-amber-100 bg-white shadow-sm">
-        <div class="mx-auto max-w-3xl px-4 py-6">
-            <h1 class="text-3xl font-bold text-emerald-700">JobBoard</h1>
-            <p class="text-sm text-gray-600 mt-1">Find your next opportunity</p>
+    <header class="border-b border-black/50 bg-gray-800 shadow-lg">
+        <div class="mx-auto max-w-3xl px-4 py-5">
+            <h1 class="text-2xl font-bold text-blue-400">JobBoard</h1>
+            <p class="text-xs text-gray-400 mt-1">Find your next opportunity</p>
         </div>
     </header>
 
     <!-- Main Content -->
     <div class="mx-auto max-w-3xl px-4 py-10">
+        <nav class="mb-8 flex justify-between text-lg font-bold">
+            <ul class="flex space-x-2">
+                <li>
+                    <a href="{{ route('jobs.index') }}" class="hover:text-blue-400">Home</a>
+                </li>
+            </ul>
+            <ul class="flex space-x-2">
+                @auth
+                    <li>{{ auth()->user()->name ?? 'Anynomus' }}</li>
+                    <li class="text-gray-300">|</li>
+                    <li>
+                        <a href="{{ route('my-applications.index') }}" class="hover:text-blue-400">My Applications</a>
+                    </li>
+                    <li class="text-gray-300">|</li>
+                    <li>
+                        <form action="{{ route('auth.destroy') }}" method="POST" class="inline">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="hover:text-blue-400">Logout</button>
+                        </form>
+                    </li>
+                @else
+                    <li>
+                        <a href="{{ route('auth.create') }}" class="hover:text-blue-400">Login</a>
+                    </li>
+                @endauth
+            </ul>
+        </nav>
+        @if (session('success'))
+            <div class="mb-6 rounded-md bg-green-500/20 px-4 py-3 text-green-400">
+                {{ session('success') }}
+            </div>
+        @endif
         {{ $slot }}
     </div>
 </body>
@@ -2782,13 +3413,13 @@ class RadioGroup extends Component
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.focus();">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-            class="size-3.5 text-gray-400 hover:text-gray-600 transition-colors">
+            class="size-3.5 text-gray-500 hover:text-gray-300 transition-colors">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
         </svg>
     </button>
-    <input type="text" placeholder="{{ $placeholder }}" name="{{ $name }}" value="{{ $value }}"
-        id="{{ $name }}"
-        class="pr-8 w-full rounded-full border-0 bg-amber-100 py-2 px-4 text-sm text-gray-800 ring-1 ring-amber-200 placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+    <input type="{{ $type }}" placeholder="{{ $placeholder }}" name="{{ $name }}"
+        value="{{ $value }}" id="{{ $name }}"
+        class="pr-8 w-full rounded-md border-0 bg-gray-800 py-2 px-3 text-sm text-gray-100 ring-1 ring-gray-700 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
 </div>
 </file>
 
@@ -2796,15 +3427,15 @@ class RadioGroup extends Component
 <div @class(['grid gap-1', 'grid-cols-2' => $columns === 2])>
     <label class="flex items-center gap-2 cursor-pointer">
         <input type="radio" name="{{ $name }}" value="" @checked(!request($name))
-            class="accent-emerald-600" />
-        <span class="text-sm text-gray-700">All</span>
+            class="accent-blue-500" />
+        <span class="text-sm text-gray-300">All</span>
     </label>
 
     @foreach ($optionsWithLabels as $label => $option)
         <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="{{ $name }}" value="{{ $option }}" @checked(request($name) === $option)
-                class="accent-emerald-600" />
-            <span class="text-sm text-gray-700">{{ $label }}</span>
+                class="accent-blue-500" />
+            <span class="text-sm text-gray-300">{{ $label }}</span>
         </label>
     @endforeach
 </div>
@@ -2815,18 +3446,18 @@ class RadioGroup extends Component
     <div>
         <x-breadcrumbs :links="['jobs' => route('jobs.index')]" />
 
-        <h1 class="text-2xl font-bold text-gray-900 mb-6">Find your next job</h1>
+        <h1 class="text-2xl font-bold text-white mb-6">Find your next job</h1>
 
         <x-card class="mb-6 text-sm">
             <form action="{{ route('jobs.index') }}" method="GET">
                 <div class="mb-5 grid grid-cols-2 gap-4 items-start">
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-600">Search</div>
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Search</div>
                         <x-text-input name="search" value="{{ request('search') }}" placeholder="Search for any text" />
                     </div>
 
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-600">Salary Range
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Salary Range
                         </div>
                         <div class="flex space-x-2">
                             <x-text-input name="min_salary" value="{{ request('min_salary') }}" placeholder="From" />
@@ -2835,25 +3466,25 @@ class RadioGroup extends Component
                     </div>
 
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-600">Experience
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Experience
                         </div>
                         <x-radio-group name="experience" :options="array_combine(
-                            array_map('ucfirst', \\App\\Models\\JobOffer::$experience),
-                            \\App\\Models\\JobOffer::$experience,
+                            array_map('ucfirst', \App\Models\JobOffer::$experience),
+                            \App\Models\JobOffer::$experience,
                         )" />
                     </div>
 
                     <div>
-                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-600">Category</div>
+                        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">Category</div>
                         <x-radio-group name="category" :options="array_combine(
-                            array_map('ucfirst', \\App\\Models\\JobOffer::$categories),
-                            \\App\\Models\\JobOffer::$categories,
+                            array_map('ucfirst', \App\Models\JobOffer::$categories),
+                            \App\Models\JobOffer::$categories,
                         )" :columns="2" />
                     </div>
                 </div>
 
                 <button type="submit"
-                    class="w-full rounded-full bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors duration-150">
+                    class="w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors duration-150 shadow-lg">
                     Filter Jobs
                 </button>
             </form>

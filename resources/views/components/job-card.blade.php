@@ -8,7 +8,7 @@
         <div class="flex space-x-3">
             <div class="flex items-center gap-1">
                 <span>🏢</span>
-                <span>Company name</span>
+                <span>{{ $job->employer->company_name }}</span>
             </div>
             <div class="flex items-center gap-1">
                 <span>📍</span>
@@ -17,8 +17,13 @@
         </div>
 
         <div class="flex space-x-2">
-            <x-tag>{{ $job->experience_Level }}</x-tag>
-            <x-tag>{{ $job->category }}</x-tag>
+            <x-tag>
+                <a
+                    href="{{ route('jobs.index', ['experience' => $job->experience_Level]) }}">{{ $job->experience_Level }}</a>
+            </x-tag>
+            <x-tag>
+                <a href="{{ route('jobs.index', ['category' => $job->category]) }}">{{ $job->category }}</a>
+            </x-tag>
         </div>
     </div>
 

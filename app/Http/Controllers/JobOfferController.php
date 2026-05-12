@@ -12,32 +12,10 @@ class JobOfferController extends Controller
      */
     public function index()
     {
-        $jobs = JobOffer::query();
+        $filters = request()->only(['search', 'min_salary', 'max_salary', 'experience', 'category']);
+        $jobs = JobOffer::query()->filter($filters);
 
-        $jobs
-            ->when(request('search'), function ($query) {
-                $query->where(function ($q) {
-                    //      ↑ opens group         ↑ inner function = ( )
-                    $q->where('title', 'like', '%' . request('search') . '%')
-                        ->orWhere('description', 'like', '%' . request('search') . '%');
-                    //                                                                       ↑ closes group
-                });
-            })
-            ->when(request('min_salary'), function ($query) {
-                $query->where('salary', '>=', request('min_salary'));
-            })
-            ->when(request('max_salary'), function ($query) {
-                $query->where('salary', '<=', request('max_salary'));
-            })
-            ->when(request('experience'), function ($query) {
-                $query->where('experience_Level', request('experience'));
-            })
-            ->when(request('category'), function ($query) {
-                $query->where('category', request('category'));
-            });
-
-
-        return view('job.index', ['jobs' => $jobs->get()]);
+        return view('job.index', ['jobs' => $jobs->with('employer')->get()]);
     }
 
     /**
@@ -61,7 +39,7 @@ class JobOfferController extends Controller
      */
     public function show(JobOffer $job)
     {
-        return view('job.show', ['job' => $job]);
+        return view('job.show', ['job' => $job->load('employer.jobOffers')]);
     }
 
     /**
