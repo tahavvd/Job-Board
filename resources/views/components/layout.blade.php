@@ -32,6 +32,10 @@
                     <li>{{ auth()->user()->name ?? 'Anynomus' }}</li>
                     <li class="text-gray-300">|</li>
                     <li>
+                        <a href="{{ route('my-jobs.index') }}" class="hover:text-blue-400">My Jobs</a>
+                    </li>
+                    <li class="text-gray-300">|</li>
+                    <li>
                         <a href="{{ route('my-applications.index') }}" class="hover:text-blue-400">My Applications</a>
                     </li>
                     <li class="text-gray-300">|</li>
@@ -52,6 +56,12 @@
         @if (session('success'))
             <div class="mb-6 rounded-md bg-green-500/20 px-4 py-3 text-green-400">
                 {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="mb-6 rounded-md bg-red-500/20 px-4 py-3 text-red-400">
+                {{ session('error') }}
             </div>
         @endif
         {{ $slot }}
