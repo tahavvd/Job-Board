@@ -18,7 +18,9 @@ class MyJobApplicationController extends Controller
                 'applications' => auth()->user()->jobApplications()
                     ->with(
                         [
-                            'jobOffer' => fn($query) => $query->withCount('jobApplications')
+                            'jobOffer' => fn($query) => $query
+                                ->withTrashed()
+                                ->withCount('jobApplications')
                                 ->withAvg('jobApplications', 'expected_salary'),
                             'jobOffer.employer'
                         ]

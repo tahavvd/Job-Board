@@ -12,10 +12,13 @@ class JobOfferController extends Controller
      */
     public function index()
     {
+
+        $this->authorize('viewAny', JobOffer::class);
+
         $filters = request()->only(['search', 'min_salary', 'max_salary', 'experience', 'category']);
         $jobs = JobOffer::query()->filter($filters);
 
-        return view('job.index', ['jobs' => $jobs->with('employer')->get()]);
+        return view('job.index', ['jobs' => $jobs->with('employer')->latest()->get()]);
     }
 
     /**
@@ -39,6 +42,8 @@ class JobOfferController extends Controller
      */
     public function show(JobOffer $job)
     {
+        $this->authorize('view', $job);
+
         return view('job.show', ['job' => $job->load('employer.jobOffers')]);
     }
 

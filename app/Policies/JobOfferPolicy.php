@@ -29,15 +29,23 @@ class JobOfferPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->employer()->exists();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, JobOffer $jobOffer): bool
+    public function update(User $user, JobOffer $jobOffer): bool|Response
     {
-        return false;
+        if ($jobOffer->employer->user_id !== $user->id) {
+            return false;
+        }
+
+        if ($jobOffer->jobApplications()->count() > 0) {
+            return Response::deny('Cannot edit a job offer that already has applications.');
+        }
+
+        return true;
     }
 
     /**
@@ -45,7 +53,7 @@ class JobOfferPolicy
      */
     public function delete(User $user, JobOffer $jobOffer): bool
     {
-        return false;
+        return $jobOffer->employer->user_id === $user->id;
     }
 
     /**
@@ -67,5 +75,10 @@ class JobOfferPolicy
     public function apply(User $user, JobOffer $jobOffer): bool
     {
         return !$jobOffer->hasUserApplied($user);
+    }
+
+    public function viewAnyEmployer(User $user): bool
+    {
+        return $user->employer !== null;
     }
 }

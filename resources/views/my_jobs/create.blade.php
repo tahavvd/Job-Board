@@ -25,11 +25,11 @@
             </div>
 
             <div class="mb-4">
-                <label for="experience" class="mb-2 block font-medium">Experience Level</label>
-                <x-radio-group name="experience" :options="array_combine(
+                <label for="experience_level" class="mb-2 block font-medium">Experience Level</label>
+                <x-radio-group name="experience_level" :options="array_combine(
                     array_map('ucfirst', \App\Models\JobOffer::$experience),
                     \App\Models\JobOffer::$experience,
-                )" :columns="2" :value="old('experience')"
+                )" :columns="2" :value="old('experience_level')"
                     :all-option="false" />
             </div>
 

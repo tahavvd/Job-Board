@@ -13,6 +13,9 @@
             <div class="flex items-center gap-1">
                 <span>📍</span>
                 <span>{{ $job->location }}</span>
+                @if ($job->deleted_at)
+                    <span class="text-xs text-red-500">Deleted</span>
+                @endif
             </div>
         </div>
 
