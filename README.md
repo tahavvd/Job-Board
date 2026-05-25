@@ -25,16 +25,59 @@ A full-stack job board web application developed with Laravel 12, demonstrating 
 - Route grouping with middleware stacks
 - Manual authentication without packages
 
-## Setup
+## Requirements
+
+- PHP 8.2+
+- Composer
+- Node.js 18+
+- MySQL
+
+## Installation
 
 ```bash
-cp .env.example .env
+# Clone the repo
+git clone https://github.com/tahavvd/Job-Board.git
+cd Job-Board
+
+# Install PHP dependencies
 composer install
+
+# Install JS dependencies
 npm install
+
+# Copy environment file
+cp .env.example .env
+
+# Generate app key
 php artisan key:generate
+```
+
+Then open `.env` and fill in your database credentials:
+DB_DATABASE=job_board
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+
+Then continue:
+
+```bash
+# Run migrations and seed demo data
 php artisan migrate --seed
+
+# Start the development server
+php artisan serve
+
+# In a separate terminal, start Vite
 npm run dev
 ```
+
+Visit `http://localhost:8000`
+
+## Demo credentials
+
+After seeding, you can log in with:
+
+- **Email:** admin@example.com
+- **Password:** password
 
 ## License
 
