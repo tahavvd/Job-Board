@@ -7,6 +7,7 @@ use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\MyJobApplicationController;
 use App\Http\Controllers\EmployerController;
 use App\Http\Controllers\MyJobsController;
+use App\Http\Controllers\RegisterController;
 
 Route::get('/', function () {
     return redirect()->route('jobs.index');
@@ -15,6 +16,10 @@ Route::get('/', function () {
 Route::resource('jobs', JobOfferController::class)->only(['index', 'show']);
 
 Route::get('login', fn() => to_route('auth.create'))->name('login');
+
+Route::get('register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+
+Route::post('register', [RegisterController::class, 'store'])->name('register.store');
 
 Route::resource('auth', AuthConroller::class)->only(['create', 'store']);
 

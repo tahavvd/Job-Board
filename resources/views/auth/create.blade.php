@@ -8,12 +8,12 @@
 
             <div class="mb-8">
                 <label for="email" class="mb-2 block font-medium">Email</label>
-                <x-text-input type="email" name="email" />
+                <x-text-input type="email" name="email" placeholder="Enter your email" />
             </div>
 
             <div class="mb-8">
                 <label for="password" class="mb-2 block font-medium">Password</label>
-                <x-text-input type="password" name="password" />
+                <x-text-input type="password" name="password" placeholder="Enter your password" />
             </div>
 
             <div class="mb-8 flex justify-around text-sm text-gray-100 font-medium">
@@ -35,4 +35,9 @@
 
         </form>
     </x-card>
+
+    <p class="text-center text-sm text-gray-300">
+        Don't have an account? <a href="{{ route('register') }}"
+            class="text-blue-400 hover:text-blue-300 transition-colors duration-150">Sign up</a>
+    </p>
 </x-layout>

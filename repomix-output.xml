@@ -51,6 +51,7 @@ app/Http/Controllers/JobApplicationController.php
 app/Http/Controllers/JobOfferController.php
 app/Http/Controllers/MyJobApplicationController.php
 app/Http/Controllers/MyJobsController.php
+app/Http/Controllers/RegisterController.php
 app/Http/Middleware/EnsureUserIsEmployer.php
 app/Http/Requests/JobOfferRequest.php
 app/Models/Employer.php
@@ -105,6 +106,7 @@ resources/css/app.css
 resources/js/app.js
 resources/js/bootstrap.js
 resources/views/auth/create.blade.php
+resources/views/auth/register.blade.php
 resources/views/components/breadcrumbs.blade.php
 resources/views/components/card.blade.php
 resources/views/components/job-card.blade.php
@@ -143,6 +145,79 @@ vite.config.js
 <files>
 This section contains the contents of the repository's files.
 
+<file path="app/Http/Controllers/RegisterController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+class RegisterController extends Controller
+{
+    public function showRegistrationForm()
+    {
+        return view('auth.register');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate(
+            [
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required|string|min:8|confirmed',
+            ]
+        );
+
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+        return redirect()->route('login')->with('success', 'Registration successful. Please log in.');
+    }
+}
+</file>
+
+<file path="resources/views/auth/register.blade.php">
+<x-layout>
+    <h1 class="my-16 text-4xl font-bold text-center">Create a new account</h1>
+    <x-card>
+        <form method="POST" action="{{ route('register.store') }}">
+            @csrf
+
+            <div class="mb-5">
+                <label for="name" class="mb-2 block font-medium">Name</label>
+                <x-text-input type="text" name="name" placeholder="Enter your name" :value="old('name')" />
+            </div>
+
+            <div class="mb-5">
+                <label for="email" class="mb-2 block font-medium">Email</label>
+                <x-text-input type="email" name="email" placeholder="Enter your email" :value="old('email')" />
+            </div>
+
+            <div class="mb-5">
+                <label for="password" class="mb-2 block font-medium">Password</label>
+                <x-text-input type="password" name="password" placeholder="Enter your password" />
+            </div>
+
+            <div class="mb-5">
+                <label for="password_confirmation" class="mb-2 block font-medium">Confirm Password</label>
+                <x-text-input type="password" name="password_confirmation" placeholder="Confirm your password" />
+            </div>
+
+            <button type="submit"
+                class="mt-5 w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors duration-150 shadow-lg">Create
+                Account</button>
+
+        </form>
+    </x-card>
+</x-layout>
+</file>
+
 <file path=".editorconfig">
 root = true
 
@@ -162,74 +237,6 @@ indent_size = 2
 
 [compose.yaml]
 indent_size = 4
-</file>
-
-<file path=".env.example">
-APP_NAME=Laravel
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://localhost
-
-APP_LOCALE=en
-APP_FALLBACK_LOCALE=en
-APP_FAKER_LOCALE=en_US
-
-APP_MAINTENANCE_DRIVER=file
-# APP_MAINTENANCE_STORE=database
-
-# PHP_CLI_SERVER_WORKERS=4
-
-BCRYPT_ROUNDS=12
-
-LOG_CHANNEL=stack
-LOG_STACK=single
-LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=
-DB_USERNAME=
-DB_PASSWORD=
-
-SESSION_DRIVER=database
-SESSION_LIFETIME=120
-SESSION_ENCRYPT=false
-SESSION_PATH=/
-SESSION_DOMAIN=null
-
-BROADCAST_CONNECTION=log
-FILESYSTEM_DISK=local
-QUEUE_CONNECTION=database
-
-CACHE_STORE=database
-# CACHE_PREFIX=
-
-MEMCACHED_HOST=127.0.0.1
-
-REDIS_CLIENT=phpredis
-REDIS_HOST=127.0.0.1
-REDIS_PASSWORD=null
-REDIS_PORT=6379
-
-MAIL_MAILER=log
-MAIL_SCHEME=null
-MAIL_HOST=127.0.0.1
-MAIL_PORT=2525
-MAIL_USERNAME=null
-MAIL_PASSWORD=null
-MAIL_FROM_ADDRESS="hello@example.com"
-MAIL_FROM_NAME="${APP_NAME}"
-
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_DEFAULT_REGION=us-east-1
-AWS_BUCKET=
-AWS_USE_PATH_STYLE_ENDPOINT=false
-
-VITE_APP_NAME="${APP_NAME}"
 </file>
 
 <file path=".gitattributes">
@@ -2522,12 +2529,12 @@ window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
             <div class="mb-8">
                 <label for="email" class="mb-2 block font-medium">Email</label>
-                <x-text-input type="email" name="email" />
+                <x-text-input type="email" name="email" placeholder="Enter your email" />
             </div>
 
             <div class="mb-8">
                 <label for="password" class="mb-2 block font-medium">Password</label>
-                <x-text-input type="password" name="password" />
+                <x-text-input type="password" name="password" placeholder="Enter your password" />
             </div>
 
             <div class="mb-8 flex justify-around text-sm text-gray-100 font-medium">
@@ -2773,6 +2780,74 @@ export default defineConfig({
         }),
     ],
 });
+</file>
+
+<file path=".env.example">
+APP_NAME=Laravel
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost
+
+APP_LOCALE=en
+APP_FALLBACK_LOCALE=en
+APP_FAKER_LOCALE=en_US
+
+APP_MAINTENANCE_DRIVER=file
+# APP_MAINTENANCE_STORE=database
+
+# PHP_CLI_SERVER_WORKERS=4
+
+BCRYPT_ROUNDS=12
+
+LOG_CHANNEL=stack
+LOG_STACK=single
+LOG_DEPRECATIONS_CHANNEL=null
+LOG_LEVEL=debug
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=
+DB_USERNAME=
+DB_PASSWORD=
+
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+SESSION_ENCRYPT=false
+SESSION_PATH=/
+SESSION_DOMAIN=null
+
+BROADCAST_CONNECTION=log
+FILESYSTEM_DISK=local
+QUEUE_CONNECTION=database
+
+CACHE_STORE=database
+# CACHE_PREFIX=
+
+MEMCACHED_HOST=127.0.0.1
+
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+MAIL_MAILER=log
+MAIL_SCHEME=null
+MAIL_HOST=127.0.0.1
+MAIL_PORT=2525
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_FROM_ADDRESS="hello@example.com"
+MAIL_FROM_NAME="${APP_NAME}"
+
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=
+AWS_USE_PATH_STYLE_ENDPOINT=false
+
+VITE_APP_NAME="${APP_NAME}"
 </file>
 
 <file path="app/Http/Controllers/Controller.php">
@@ -3131,63 +3206,6 @@ return [
     ],
 
 ];
-</file>
-
-<file path="database/seeders/DatabaseSeeder.php">
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\User;
-use App\Models\JobOffer;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-
-class DatabaseSeeder extends Seeder
-{
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
-    public function run(): void
-    {
-
-
-        User::factory()->create([
-            'name' => 'Taha Touil',
-            'email' => 'tahatouil@gmail.com',
-        ]);
-
-        User::factory(300)->create();
-
-        $users = User::all()->shuffle();
-
-        for ($i = 0; $i < 20; $i++) {
-            \App\Models\Employer::factory()->create([
-                "user_id" => $users->pop()->id
-            ]);
-        }
-
-        $employers = \App\Models\Employer::all();
-        for ($i = 0; $i < 100; $i++) {
-            JobOffer::factory()->create([
-                'employer_id' => $employers->random()->id
-            ]);
-        }
-
-        foreach ($users as $user) {
-            $jobOffers = JobOffer::inRandomOrder()->take(rand(1, 5))->get();
-
-            foreach ($jobOffers as $jobOffer) {
-                \App\Models\JobApplication::factory()->create([
-                    'user_id' => $user->id,
-                    'job_offer_id' => $jobOffer->id
-                ]);
-            }
-        }
-    }
-}
 </file>
 
 <file path="package.json">
@@ -3671,48 +3689,61 @@ class JobOfferPolicy
 }
 </file>
 
-<file path="README.md">
-# Job Board
+<file path="database/seeders/DatabaseSeeder.php">
+<?php
 
-A full-stack job board web application developed with Laravel 12, demonstrating a clean and maintainable architecture following modern PHP and Laravel best practices. The application allows employers to create and manage job offers, and job seekers to browse listings and submit applications with CV uploads.
+namespace Database\Seeders;
 
-## Features
+use App\Models\User;
+use App\Models\JobOffer;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
 
-- Public job listings with filters (search, salary range, experience level, category)
-- Employer profiles with a dedicated management panel
-- Job offer management (create, edit, soft delete)
-- Job applications with CV upload
-- Role-based access control using Policies and custom Middleware
-- Reusable Blade components
-- Form validation using FormRequest classes
-- Flash messaging for user feedback
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
 
-## Concepts Covered
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
 
-- Eloquent ORM — relationships, query scopes, soft deletes
-- Resource controllers with separation between public and authenticated contexts
-- FormRequest validation
-- Policies for record-level authorization
-- Custom Middleware for route-level access control
-- Blade templating with anonymous and class-based components
-- File storage with Laravel's private disk
-- Route grouping with middleware stacks
-- Manual authentication without packages
 
-## Setup
+        User::factory()->create([
+            'name' => 'admin',
+            'email' => 'admin@example.com',
+        ]);
 
-```bash
-cp .env.example .env
-composer install
-npm install
-php artisan key:generate
-php artisan migrate --seed
-npm run dev
-```
+        User::factory(300)->create();
 
-## License
+        $users = User::all()->shuffle();
 
-MIT
+        for ($i = 0; $i < 20; $i++) {
+            \App\Models\Employer::factory()->create([
+                "user_id" => $users->pop()->id
+            ]);
+        }
+
+        $employers = \App\Models\Employer::all();
+        for ($i = 0; $i < 100; $i++) {
+            JobOffer::factory()->create([
+                'employer_id' => $employers->random()->id
+            ]);
+        }
+
+        foreach ($users as $user) {
+            $jobOffers = JobOffer::inRandomOrder()->take(rand(1, 5))->get();
+
+            foreach ($jobOffers as $jobOffer) {
+                \App\Models\JobApplication::factory()->create([
+                    'user_id' => $user->id,
+                    'job_offer_id' => $jobOffer->id
+                ]);
+            }
+        }
+    }
+}
 </file>
 
 <file path="resources/views/components/breadcrumbs.blade.php">
@@ -3858,6 +3889,93 @@ class RadioGroup extends Component
 }
 </file>
 
+<file path="README.md">
+# Job Board
+
+A full-stack job board web application developed with Laravel 12, demonstrating a clean and maintainable architecture following modern PHP and Laravel best practices. The application allows employers to create and manage job offers, and job seekers to browse listings and submit applications with CV uploads.
+
+## Features
+
+- Public job listings with filters (search, salary range, experience level, category)
+- Employer profiles with a dedicated management panel
+- Job offer management (create, edit, soft delete)
+- Job applications with CV upload
+- Role-based access control using Policies and custom Middleware
+- Reusable Blade components
+- Form validation using FormRequest classes
+- Flash messaging for user feedback
+
+## Concepts Covered
+
+- Eloquent ORM — relationships, query scopes, soft deletes
+- Resource controllers with separation between public and authenticated contexts
+- FormRequest validation
+- Policies for record-level authorization
+- Custom Middleware for route-level access control
+- Blade templating with anonymous and class-based components
+- File storage with Laravel's private disk
+- Route grouping with middleware stacks
+- Manual authentication without packages
+
+## Requirements
+
+- PHP 8.2+
+- Composer
+- Node.js 18+
+- MySQL
+
+## Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/tahavvd/Job-Board.git
+cd Job-Board
+
+# Install PHP dependencies
+composer install
+
+# Install JS dependencies
+npm install
+
+# Copy environment file
+cp .env.example .env
+
+# Generate app key
+php artisan key:generate
+```
+
+Then open `.env` and fill in your database credentials:
+DB_DATABASE=job_board
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+
+Then continue:
+
+```bash
+# Run migrations and seed demo data
+php artisan migrate --seed
+
+# Start the development server
+php artisan serve
+
+# In a separate terminal, start Vite
+npm run dev
+```
+
+Visit `http://localhost:8000`
+
+## Demo credentials
+
+After seeding, you can log in with:
+
+- **Email:** admin@example.com
+- **Password:** password
+
+## License
+
+MIT
+</file>
+
 <file path="resources/views/components/linkbutton.blade.php">
 <a href="{{ $href }}"
     {{ $attributes->merge(['class' => 'inline-block rounded-md bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition-colors duration-150']) }}>
@@ -3925,6 +4043,7 @@ use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\MyJobApplicationController;
 use App\Http\Controllers\EmployerController;
 use App\Http\Controllers\MyJobsController;
+use App\Http\Controllers\RegisterController;
 
 Route::get('/', function () {
     return redirect()->route('jobs.index');
@@ -3933,6 +4052,10 @@ Route::get('/', function () {
 Route::resource('jobs', JobOfferController::class)->only(['index', 'show']);
 
 Route::get('login', fn() => to_route('auth.create'))->name('login');
+
+Route::get('register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+
+Route::post('register', [RegisterController::class, 'store'])->name('register.store');
 
 Route::resource('auth', AuthConroller::class)->only(['create', 'store']);
 
